@@ -346,7 +346,45 @@
         let currentFileData = null;
         let currentFileName = "";
 
-        document.addEventListener('DOMContentLoaded', () => { refreshLists(); showView('home'); });
+        document.addEventListener('DOMContentLoaded', () => { 
+            refreshLists(); 
+            showView('home');
+            initDragAndDrop();
+        });
+
+        function initDragAndDrop() {
+            const dropZone = document.getElementById('upload-step');
+            if (!dropZone) return;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.add('border-indigo-500', 'bg-indigo-50/80');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/80');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', e => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    const fileInput = document.getElementById('form-file');
+                    fileInput.files = files;
+                    startAnalysis();
+                }
+            }, false);
+        }
 
         function showView(view) {
             ['home', 'submit', 'admin'].forEach(v => document.getElementById('view-' + v).classList.add('hidden'));
