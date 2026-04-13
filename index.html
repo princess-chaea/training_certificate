@@ -248,6 +248,9 @@
                             <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">이수시간</label><input
                                     type="text" id="ai-hours" placeholder="없음"
                                     class="w-full p-3 rounded-xl input-field font-bold"></div>
+                            <div class="col-span-full"><label class="block text-xs font-bold text-gray-500 uppercase mb-1">근무기관</label><input
+                                    type="text" id="ai-institution" placeholder="분석 중..."
+                                    class="w-full p-3 rounded-xl input-field font-bold"></div>
                         </div>
                     </div>
                     <button onclick="finalSubmit()" id="final-submit-btn"
@@ -310,7 +313,7 @@
             if (!GAS_URL && typeof google === 'undefined') {
                     const mockHandlers = {
                         getTrainingList: () => [{ title: "2026 에듀테크 연수 (Mock)", deadlineStr: "2026-12-31", sheetUrl: "#", folderUrl: "#" }],
-                        analyzeCertificate: () => ({ name: "홍길동", courseName: "에듀테크 활용", certNo: "123", hours: "15" }),
+                        analyzeCertificate: () => ({ name: "홍길동", courseName: "에듀테크 활용", certNo: "123", hours: "15", institution: "하주초등학교" }),
                         addTraining: (t, d, n) => `[${t}] 등록 완료 (안내사항: ${n})`,
                         submitCertificate: (d) => `${d.name} 님 제출 완료`
                     };
@@ -416,6 +419,7 @@
                     document.getElementById('ai-course').value = res.courseName || "";
                     document.getElementById('ai-certno').value = res.certNo || "";
                     document.getElementById('ai-hours').value = res.hours || "";
+                    document.getElementById('ai-institution').value = res.institution || "";
                     document.getElementById('analysis-loading').classList.add('hidden');
                     document.getElementById('confirm-step').classList.remove('hidden');
                 } catch (err) {
