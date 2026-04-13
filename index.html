@@ -621,6 +621,25 @@
                     </div>
                 `;
                 }).join('');
+
+                // 분석 중인 항목이 하나라도 있으면 제출 버튼 비활성화
+                const isAnalyzing = uploadQueue.some(item => item.status === 'analyzing');
+                const submitBtn = document.getElementById('final-submit-btn');
+                
+                if (isAnalyzing) {
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    submitBtn.innerHTML = `
+                        <div class="flex flex-col items-center py-1">
+                            <span class="text-sm opacity-80 font-normal">분석이 진행 중입니다...</span>
+                            <span class="text-xs opacity-60 font-medium">(분석이 완료되면 제출하기 버튼이 활성화 됩니다.)</span>
+                        </div>
+                    `;
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    submitBtn.innerText = "제출하기";
+                }
             }
 
             function updateQueueItem(id, field, value) {
