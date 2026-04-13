@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-glass: rgba(255, 255, 255, 0.8);
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+            min-height: 100vh;
+            color: #1F2937;
+        }
+
+        .glass {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .input-field {
+            transition: all 0.2s;
+            border: 1px solid #E5E7EB;
+        }
+
+        .input-field:focus {
+            border-color: var(--primary);
+            ring: 2px;
+            ring-color: rgba(79, 70, 229, 0.2);
+            outline: none;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.4s ease-out forwards;
+        }
+
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8 flex items-center justify-center">
+    <div id="app" class="w-full max-w-4xl glass rounded-3xl overflow-hidden min-h-[700px] flex flex-col animate-slide-up">
+
+        <!-- 헤더 -->
+        <header class="bg-indigo-600 p-8 text-white relative">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+            <h1 class="text-3xl font-extrabold tracking-tight">🏫 하주초 연수 이수증 수합</h1>
+            <p class="text-indigo-100 mt-2 opacity-90 font-medium">제미나이 AI로 이수증 정보를 자동으로 수합합니다.</p>
+        </header>
+
+        <!-- 네비게이션 -->
+        <nav class="flex border-b bg-white/50 backdrop-blur-md">
+            <button onclick="showView('home')"
+                class="flex-1 py-5 text-center font-bold transition-all relative" id="tab-home">
+                <span class="relative z-10">연수 목록</span>
+                <div id="tab-indicator-home" class="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 scale-x-0 transition-transform origin-left"></div>
+            </button>
+            <button onclick="showView('admin')"
+                class="flex-1 py-5 text-center font-bold transition-all relative text-gray-400" id="tab-admin">
+                <span class="relative z-10">시스템 관리</span>
+                <div id="tab-indicator-admin" class="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 scale-x-0 transition-transform origin-left"></div>
+            </button>
+        </nav>
+
+        <!-- 메인 콘텐츠 영역 -->
+        <main class="flex-1 overflow-y-auto p-6 md:p-10">
+            
+            <!-- Home: 목록 -->
+            <div id="view-home" class="space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-800 tracking-tight">📋 현재 진행 중인 수합</h2>
+                    <button onclick="refreshLists()" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </button>
+                </div>
+                <div id="training-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="col-span-full py-20 text-center space-y-4">
+                        <div class="loading-shimmer h-12 w-full rounded-2xl mx-auto max-w-md"></div>
+                        <p class="text-gray-400 font-medium">연수 정보를 불러오는 중입니다...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit: 제출 단계 (파일 업로드) -->
+            <div id="view-submit" class="hidden space-y-8 max-w-2xl mx-auto">
+                <button onclick="showView('home')" class="group text-sm font-bold text-indigo-600 flex items-center hover:text-indigo-800 transition">
+                    <svg class="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    돌아가기
+                </button>
+                <div class="text-center">
+                    <h2 id="submit-title" class="text-3xl font-extrabold text-gray-900 mb-2">이수증 분석</h2>
+                    <p class="text-gray-500">파일을 업로드하면 AI가 정보를 자동으로 찾아줍니다.</p>
+                </div>
+
+                <div id="upload-step" class="border-4 border-dashed border-gray-200 rounded-3xl p-12 text-center transition-all hover:border-indigo-300 hover:bg-indigo-50/50 group">
+                    <input type="file" id="form-file" accept=".pdf,image/*" class="hidden" onchange="startAnalysis()">
+                    <label for="form-file" class="cursor-pointer block">
+                        <div class="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                            <svg class="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        </div>
+                        <p class="text-lg font-bold text-gray-700">이수증 파일(PDF/이미지) 선택</p>
+                        <p class="text-sm text-gray-400 mt-2">파일을 클릭하거나 드래그하여 업로드하세요</p>
+                    </label>
+                </div>
+
+                <!-- 분석 중 로딩 -->
+                <div id="analysis-loading" class="hidden text-center py-10 space-y-6">
+                    <div class="flex justify-center flex-col items-center gap-4">
+                        <div class="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div class="text-xl font-bold text-gray-800">Gemini 2.5 Flash가 분석 중...</div>
+                        <p class="text-gray-500 animate-pulse">이수증의 내용을 파악하고 데이터를 추출하고 있습니다.</p>
+                    </div>
+                </div>
+
+                <!-- 확인 단계 (AI 결과물) -->
+                <div id="confirm-step" class="hidden space-y-6 animate-slide-up">
+                    <div class="bg-indigo-50 border border-indigo-100 p-6 rounded-3xl space-y-4">
+                        <h3 class="font-bold text-indigo-900 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path></svg>
+                            AI 분석 결과입니다. 정보를 확인해주세요.
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">성명</label>
+                                <input type="text" id="ai-name" class="w-full p-3 rounded-xl input-field font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">과정명</label>
+                                <input type="text" id="ai-course" class="w-full p-3 rounded-xl input-field font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">이수번호</label>
+                                <input type="text" id="ai-certno" class="w-full p-3 rounded-xl input-field font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">이수시간</label>
+                                <input type="text" id="ai-hours" placeholder="없음" class="w-full p-3 rounded-xl input-field font-bold">
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="finalSubmit()" id="final-submit-btn" class="w-full py-4 btn-primary text-white rounded-2xl font-bold text-lg">최종 제출하기</button>
+                    <p class="text-center text-xs text-gray-400">정보가 틀렸다면 직접 수정 후 제출해주세요.</p>
+                </div>
+            </div>
+
+            <!-- Admin: 관리 -->
+            <div id="view-admin" class="hidden space-y-10 animate-slide-up">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-800">⚙️ 시스템 관리</h2>
+                    <button onclick="openApiKeyModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-bold transition">API 키 설정</button>
+                </div>
+
+                <div class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-6">
+                    <h3 class="text-xl font-bold text-gray-800">📝 새 연수 수합 등록</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-600 mb-2">연수 명칭</label>
+                            <input type="text" id="admin-title" placeholder="예: 2026 에듀테크 역량 강화" class="w-full p-3 rounded-xl input-field">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-600 mb-2">마감 일자</label>
+                            <input type="date" id="admin-deadline" class="w-full p-3 rounded-xl input-field">
+                        </div>
+                    </div>
+                    <button onclick="registerTraining()" class="w-full py-4 btn-primary text-white rounded-xl font-bold">연수 시트 생성 (서식 복사)</button>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-xl font-bold text-gray-800">📂 생성된 연수 관리</h3>
+                    <div id="admin-training-list" class="space-y-3"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- API 키 설정 모달 -->
+    <div id="apiKeyModal" class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-50 backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full animate-slide-up">
+            <h2 class="text-2xl font-bold mb-2">Gemini API 설정</h2>
+            <p class="text-sm text-gray-500 mb-6">발급받은 API 키를 입력해주세요.</p>
+            <input type="password" id="api-key-input" placeholder="AI Studio에서 발급받은 키" class="w-full p-4 rounded-2xl input-field mb-6">
+            <div class="flex gap-3">
+                <button onclick="closeApiKeyModal()" class="flex-1 py-3 bg-gray-100 rounded-xl font-bold hover:bg-gray-200 transition">취소</button>
+                <button onclick="saveApiKey()" class="flex-2 py-3 btn-primary text-white px-8 rounded-xl font-bold">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 범용 모달 (결과 알림) -->
+    <div id="alertModal" class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-50 backdrop-blur-sm">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6">
+            <div id="modal-icon" class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"></path></svg>
+            </div>
+            <div id="modal-message" class="text-xl font-bold text-gray-800"></div>
+            <button onclick="closeModal('alertModal')" class="w-full py-4 btn-primary text-white rounded-2xl font-bold">확인</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 전역 변수 ---
+        let cachedList = [];
+        let currentTrainingTitle = "";
+        let currentFileData = null;
+        let currentFileName = "";
+
+        // --- 초기화 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshLists();
+            showView('home');
+        });
+
+        // --- View 전환 ---
+        function showView(view) {
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-submit').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            document.getElementById('view-' + view).classList.remove('hidden');
+
+            const tabHome = document.getElementById('tab-home');
+            const tabAdmin = document.getElementById('tab-admin');
+            const indHome = document.getElementById('tab-indicator-home');
+            const indAdmin = document.getElementById('tab-indicator-admin');
+
+            if (view === 'admin') {
+                tabAdmin.classList.add('text-indigo-600');
+                tabAdmin.classList.remove('text-gray-400');
+                tabHome.classList.add('text-gray-400');
+                tabHome.classList.remove('text-indigo-600');
+                indAdmin.classList.remove('scale-x-0');
+                indHome.classList.add('scale-x-0');
+            } else {
+                tabHome.classList.add('text-indigo-600');
+                tabHome.classList.remove('text-gray-400');
+                tabAdmin.classList.add('text-gray-400');
+                tabAdmin.classList.remove('text-indigo-600');
+                indHome.classList.remove('scale-x-0');
+                indAdmin.classList.add('scale-x-0');
+            }
+        }
+
+        // --- 데이터 관리 ---
+        function refreshLists() {
+            google.script.run.withSuccessHandler(list => {
+                cachedList = list;
+                renderHome();
+                renderAdmin();
+            }).getTrainingList();
+        }
+
+        function renderHome() {
+            const container = document.getElementById('training-list');
+            if (cachedList.length === 0) {
+                container.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400 font-medium">현재 등록된 연수 수합 기간이 아닙니다.</div>';
+                return;
+            }
+            container.innerHTML = cachedList.map(item => `
+                <div onclick="openSubmit('${item.title}')" class="group bg-white border border-white hover:border-indigo-400 hover:shadow-2xl p-6 rounded-3xl cursor-pointer transition-all active:scale-95">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            ${item.title[0]}
+                        </div>
+                        <span class="text-xs font-bold px-3 py-1 bg-red-50 text-red-500 rounded-full">D-Day: ${item.deadlineStr}</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2 truncate group-hover:text-indigo-600 transition-colors">${item.title}</h3>
+                    <p class="text-sm text-gray-400 font-medium">클릭하여 이수증 제출하기</p>
+                </div>
+            `).join('');
+        }
+
+        function renderAdmin() {
+            const container = document.getElementById('admin-training-list');
+            container.innerHTML = cachedList.map(item => `
+                <div class="bg-gray-50 p-5 rounded-2xl flex items-center justify-between border border-gray-100">
+                    <div>
+                        <p class="font-bold text-gray-800">${item.title}</p>
+                        <p class="text-xs text-gray-400">마감: ${item.deadlineStr}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="${item.sheetUrl}" target="_blank" class="px-3 py-1.5 bg-white border rounded-xl text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 transition">📊 시트</a>
+                        <a href="${item.folderUrl}" target="_blank" class="px-3 py-1.5 bg-white border rounded-xl text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 transition">📂 폴더</a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- 제출 로직 ---
+        function openSubmit(title) {
+            currentTrainingTitle = title;
+            document.getElementById('submit-title').innerText = title;
+            document.getElementById('upload-step').classList.remove('hidden');
+            document.getElementById('confirm-step').classList.add('hidden');
+            document.getElementById('analysis-loading').classList.add('hidden');
+            showView('submit');
+        }
+
+        function startAnalysis() {
+            const fileInput = document.getElementById('form-file');
+            if (fileInput.files.length === 0) return;
+
+            const file = fileInput.files[0];
+            currentFileName = file.name;
+            
+            document.getElementById('upload-step').classList.add('hidden');
+            document.getElementById('analysis-loading').classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentFileData = e.target.result;
+                google.script.run
+                    .withSuccessHandler(res => {
+                        document.getElementById('analysis-loading').classList.add('hidden');
+                        document.getElementById('confirm-step').classList.remove('hidden');
+                        
+                        document.getElementById('ai-name').value = res.name || "";
+                        document.getElementById('ai-course').value = res.courseName || "";
+                        document.getElementById('ai-certno').value = res.certNo || "";
+                        document.getElementById('ai-hours').value = res.hours || "";
+                    })
+                    .withFailureHandler(err => {
+                        alert("AI 분석에 실패했지만 수동으로 작성 가능합니다: " + err);
+                        document.getElementById('analysis-loading').classList.add('hidden');
+                        document.getElementById('confirm-step').classList.remove('hidden');
+                    })
+                    .analyzeCertificate(currentFileData, currentFileName);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function finalSubmit() {
+            const btn = document.getElementById('final-submit-btn');
+            btn.disabled = true;
+            btn.innerText = "제출 처리 중...";
+
+            const data = {
+                trainingTitle: currentTrainingTitle,
+                name: document.getElementById('ai-name').value,
+                courseName: document.getElementById('ai-course').value,
+                certNo: document.getElementById('ai-certno').value,
+                hours: document.getElementById('ai-hours').value,
+                fileData: currentFileData,
+                fileName: currentFileName
+            };
+
+            google.script.run
+                .withSuccessHandler(msg => {
+                    showAlert(msg);
+                    showView('home');
+                    btn.disabled = false;
+                    btn.innerText = "최종 제출하기";
+                })
+                .withFailureHandler(err => {
+                    showAlert("제출 실패: " + err, true);
+                    btn.disabled = false;
+                    btn.innerText = "최종 제출하기";
+                })
+                .submitCertificate(data);
+        }
+
+        // --- 관리 로직 ---
+        function registerTraining() {
+            const title = document.getElementById('admin-title').value;
+            const deadline = document.getElementById('admin-deadline').value;
+            if (!title) return alert("연수 명칭을 입력하세요.");
+
+            google.script.run.withSuccessHandler(msg => {
+                showAlert(msg);
+                document.getElementById('admin-title').value = "";
+                refreshLists();
+            }).addTraining(title, deadline);
+        }
+
+        function openApiKeyModal() {
+            google.script.run.withSuccessHandler(key => {
+                document.getElementById('api-key-input').value = key;
+                document.getElementById('apiKeyModal').classList.remove('hidden');
+            }).getApiKey();
+        }
+
+        function closeApiKeyModal() {
+            document.getElementById('apiKeyModal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('api-key-input').value;
+            google.script.run.withSuccessHandler(msg => {
+                showAlert(msg);
+                closeApiKeyModal();
+            }).saveApiKey(key);
+        }
+
+        // --- 알림 ---
+        function showAlert(msg, isError = false) {
+            const modal = document.getElementById('alertModal');
+            const icon = document.getElementById('modal-icon');
+            const message = document.getElementById('modal-message');
+
+            message.innerText = msg;
+            if(isError) {
+                icon.className = "w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto";
+                icon.innerHTML = '<svg class="w-10 h-10" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"></path></svg>';
+            } else {
+                icon.className = "w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto";
+                icon.innerHTML = '<svg class="w-10 h-10" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"></path></svg>';
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+    </script>
+</body>
+
+</html>
