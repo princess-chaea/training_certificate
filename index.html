@@ -377,35 +377,38 @@
                 class="w-full py-4 btn-primary text-white rounded-2xl font-bold shadow-lg">확인</button>
         </div>
     </div>
+        </div>
+    </main>
+</div> <!-- app 및 main 태그 닫기 -->
 
-    <div id="sidePreviewPanel" 
-        class="fixed top-0 right-0 h-screen bg-white z-[80] hidden flex flex-col border-l border-gray-100 animate-slide-in-right">
-        <div class="bg-indigo-600 p-4 text-white flex justify-between items-center shadow-md">
-            <div class="flex items-center gap-3">
-                <button onclick="togglePanelWidth()" class="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition text-[10px] font-bold flex items-center gap-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                    크기 조절
-                </button>
-                <h3 class="font-bold flex items-center gap-2 text-sm sm:text-base">
-                    이수증 확인
-                </h3>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <button id="externalOpenBtn" class="p-2 hover:bg-white/20 rounded-full transition" title="새 탭에서 보기">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </button>
-                <button onclick="closeSidePreview()" class="p-2 hover:bg-white/20 rounded-full transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
+<div id="sidePreviewPanel" 
+    class="fixed top-0 right-0 h-screen bg-white z-[80] hidden flex flex-col border-l border-gray-100 animate-slide-in-right">
+    <div class="bg-indigo-600 p-4 text-white flex justify-between items-center shadow-md">
+        <div class="flex items-center gap-3">
+            <button onclick="togglePanelWidth()" class="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition text-[10px] font-bold flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                크기 조절
+            </button>
+            <h3 class="font-bold flex items-center gap-2 text-sm sm:text-base">
+                이수증 확인
+            </h3>
         </div>
-        <div id="side-preview-content" class="flex-1 bg-gray-50 flex items-center justify-center overflow-auto p-2">
-            <!-- 내용 동적 주입 -->
-        </div>
-        <div class="p-3 border-t bg-white text-center">
-            <p class="text-[10px] text-gray-400 font-medium">패널을 보며 왼쪽에서 수동 수정을 하실 수 있습니다.</p>
+        <div class="flex items-center gap-1.5">
+            <button id="externalOpenBtn" class="p-2 hover:bg-white/20 rounded-full transition" title="새 탭에서 보기">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            </button>
+            <button onclick="closeSidePreview()" class="p-2 hover:bg-white/20 rounded-full transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </div>
     </div>
+    <div id="side-preview-content" class="flex-1 bg-gray-50 flex items-center justify-center overflow-auto p-2">
+        <!-- 내용 동적 주입 -->
+    </div>
+    <div class="p-3 border-t bg-white text-center">
+        <p class="text-[10px] text-gray-400 font-medium">패널을 보며 왼쪽에서 수동 수정을 하실 수 있습니다.</p>
+    </div>
+</div>
 
         <script>
             /**
@@ -638,10 +641,8 @@
                         const res = await callGas('analyzeCertificate', base64, item.file.name);
                         item.aiData = res;
 
-                        // [추가] AI 결과 검증: 이수증이 아니거나, 이름/이수번호 등이 "null" 혹은 너무 짧으면 확인 필요로 분류
-                        const isGarbage = (val) => !val || val.toLowerCase() === 'null' || val.trim().length < 2;
-                        
-                        if (res.isCertificate === false || isGarbage(res.name) || isGarbage(res.certNo)) {
+                        // [수정] 지나치게 엄격한 필터 제거 (성명이 없더라도 일단 보여줌)
+                        if (res.isCertificate === false) {
                             item.status = 'invalid_doc';
                             renderReviewQueue();
                             continue;
