@@ -73,6 +73,11 @@
             cursor: not-allowed;
         }
 
+        /* 미리보기 모달 전용 스타일 */
+        .preview-modal-content {
+            height: calc(90vh - 120px);
+        }
+
         .input-field {
             background: rgba(255, 255, 255, 0.5);
             border: 1px solid rgba(226, 232, 240, 0.8);
@@ -326,7 +331,7 @@
         </div>
         <div id="alertModal"
             class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-[110] backdrop-blur-sm p-4">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6 animate-slide-up">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl max-sm w-full text-center space-y-6 animate-slide-up">
                 <div id="modal-icon"
                     class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl">
                     ✅
@@ -334,6 +339,33 @@
                 <div id="modal-message" class="text-xl font-bold text-gray-800 break-words font-['Noto_Sans_KR']"></div>
                 <button onclick="closeModal('alertModal')"
                     class="w-full py-4 btn-primary text-white rounded-2xl font-bold shadow-lg">확인</button>
+            </div>
+        </div>
+
+        <!-- 미리보기 모달 (팝업) -->
+        <div id="previewModal"
+            class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-[120] backdrop-blur-sm p-4">
+            <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full overflow-hidden animate-slide-up flex flex-col">
+                <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                    <h3 class="font-bold flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        이수증 원본 확인
+                    </h3>
+                    <button onclick="closeModal('previewModal')" class="p-2 hover:bg-white/20 rounded-full transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="preview-content" class="flex-1 bg-gray-100 flex items-center justify-center preview-modal-content overflow-auto p-2">
+                    <!-- 여기에 이미지나 PDF가 동적으로 들어갑니다 -->
+                </div>
+                <div class="p-4 border-t bg-gray-50 text-center">
+                    <p class="text-xs text-gray-400 font-medium">내용을 확인하신 후 닫기 버튼을 눌러주세요.</p>
+                </div>
             </div>
         </div>
 
@@ -381,6 +413,8 @@
             let participantCache = [];
             let uploadQueue = []; // { file, id, status, aiData, matches, selectedMatchIndex, base64 }
             let currentEditId = null;
+
+            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
             document.addEventListener('DOMContentLoaded', () => {
                 refreshLists();
@@ -550,13 +584,17 @@
             }
 
             async function processQueueSequentially() {
-                for (let item of uploadQueue) {
+                for (let i = 0; i < uploadQueue.length; i++) {
+                    const item = uploadQueue[i];
                     if (item.status !== 'pending') continue;
 
                     item.status = 'analyzing';
                     renderReviewQueue();
 
                     try {
+                        // 무료 티어 RPM 제한 방지 (첫번째 항목 제외하고 2초 대기)
+                        if (i > 0) await delay(2000);
+
                         const base64 = await readFileAsDataURL(item.file);
                         item.base64 = base64;
                         const res = await callGas('analyzeCertificate', base64, item.file.name);
@@ -620,39 +658,53 @@
                         borderClass = 'border-indigo-100 bg-indigo-50/30';
                     }
 
+                    // 미리보기 버튼 HTML
+                    const previewBtn = `
+                        <button onclick="openPreview(${item.id})" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            원본 보기
+                        </button>
+                    `;
+
                     const detailContent = item.aiData ? `
-                    <div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">성명</label>
-                            <input type="text" value="${item.aiData.name}" oninput="updateQueueItem(${item.id}, 'name', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
+                        <div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3 animate-slide-up">
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">성명</label>
+                                <input type="text" value="${item.aiData.name}" oninput="updateQueueItem(${item.id}, 'name', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
+                            </div>
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">과정명</label>
+                                <input type="text" value="${item.aiData.courseName}" oninput="updateQueueItem(${item.id}, 'courseName', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
+                            </div>
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">이수번호</label>
+                                <input type="text" value="${item.aiData.certNo}" oninput="updateQueueItem(${item.id}, 'certNo', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
+                            </div>
+                            <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">이수시간</label>
+                                <input type="text" value="${item.aiData.hours}" oninput="updateQueueItem(${item.id}, 'hours', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
+                            </div>
+                            <div class="col-span-full"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">근무기관</label>
+                                <input type="text" value="${item.aiData.institution}" oninput="updateQueueItem(${item.id}, 'institution', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
+                            </div>
                         </div>
-                        <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">과정명</label>
-                            <input type="text" value="${item.aiData.courseName}" oninput="updateQueueItem(${item.id}, 'courseName', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
-                        </div>
-                        <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">이수번호</label>
-                            <input type="text" value="${item.aiData.certNo}" oninput="updateQueueItem(${item.id}, 'certNo', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
-                        </div>
-                        <div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">이수시간</label>
-                            <input type="text" value="${item.aiData.hours}" oninput="updateQueueItem(${item.id}, 'hours', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
-                        </div>
-                        <div class="col-span-full"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">근무기관</label>
-                            <input type="text" value="${item.aiData.institution}" oninput="updateQueueItem(${item.id}, 'institution', this.value)" class="w-full p-2 rounded-lg bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-400 outline-none text-sm font-bold">
-                        </div>
-                    </div>
-                ` : '';
+                    ` : '';
 
                     return `
-                    <div class="p-5 bg-white border-2 ${borderClass} rounded-3xl transition-all shadow-sm flex flex-col gap-1">
-                        <div class="flex items-center gap-4">
-                            <div class="flex-shrink-0 w-10 h-10 bg-gray-50 rounded-2xl flex items-center justify-center">${icon}</div>
-                            <div class="flex-grow min-w-0">
-                                <p class="text-[10px] text-gray-400 truncate">${item.file.name}</p>
-                                <p class="font-bold text-gray-800">${item.aiData ? item.aiData.name : '대기 중...'}</p>
+                        <div class="p-5 bg-white border-2 ${borderClass} rounded-3xl transition-all shadow-sm flex flex-col gap-1 overflow-hidden" id="queue-item-${item.id}">
+                            <div class="flex items-center gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 bg-gray-50 rounded-2xl flex items-center justify-center">${icon}</div>
+                                <div class="flex-grow min-w-0">
+                                    <p class="text-[10px] text-gray-400 truncate">${item.file.name}</p>
+                                    <div class="flex items-center gap-3">
+                                        <p class="font-bold text-gray-800">${item.aiData ? item.aiData.name : '대기 중...'}</p>
+                                        ${item.base64 ? previewBtn : ''}
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 text-right text-xs" id="status-badge-${item.id}">${statusBadge}</div>
                             </div>
-                            <div class="flex-shrink-0 text-right text-xs">${statusBadge}</div>
+                            <div id="detail-container-${item.id}">${detailContent}</div>
                         </div>
-                        ${detailContent}
-                    </div>
-                `;
+                    `;
                 }).join('');
 
                 // 분석 중인 항목이 하나라도 있으면 제출 버튼 비활성화
@@ -701,11 +753,25 @@
                 if (oldStatus !== item.status) {
                     renderReviewQueue();
                 } else {
-                    // 상태 배지만 업데이트
+                    // 데이터만 업데이트하고 리렌더링은 피함 (포커스 유지)
                     document.getElementById('queue-count').innerText = uploadQueue.length;
-                    // 실제로는 전체 리렌더링 시 input focus를 잃으므로 
-                    // 위에서 oldStatus 체크를 통해 입력 중에는 렌더링을 피함
                 }
+            }
+
+            function openPreview(id) {
+                const item = uploadQueue.find(i => i.id === id);
+                if (!item || !item.base64) return;
+
+                const contentArea = document.getElementById('preview-content');
+                const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
+
+                if (isPdf) {
+                    contentArea.innerHTML = `<embed src="${item.base64}" type="application/pdf" class="w-full h-full rounded-2xl">`;
+                } else {
+                    contentArea.innerHTML = `<img src="${item.base64}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg">`;
+                }
+
+                document.getElementById('previewModal').classList.remove('hidden');
             }
 
             async function finalBulkSubmit() {
