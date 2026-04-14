@@ -75,7 +75,8 @@
 
         /* 미리보기 모달 전용 스타일 */
         .preview-modal-content {
-            height: calc(90vh - 120px);
+            height: 100%;
+            width: 100%;
         }
 
         .input-field {
@@ -342,10 +343,9 @@
             </div>
         </div>
 
-        <!-- 미리보기 모달 (팝업) -->
         <div id="previewModal"
             class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-[120] backdrop-blur-sm p-4">
-            <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full overflow-hidden animate-slide-up flex flex-col">
+            <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[85vh] overflow-hidden animate-slide-up flex flex-col">
                 <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
                     <h3 class="font-bold flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -760,19 +760,25 @@
 
             function openPreview(id) {
                 const item = uploadQueue.find(i => i.id === id);
-                if (!item || !item.base64) return;
+                if (!item) return;
 
                 const contentArea = document.getElementById('preview-content');
                 const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
+                
+                contentArea.innerHTML = '<div class="text-gray-400">불러오는 중...</div>';
+                
+                // Blob URL을 사용하여 호환성 및 대용량 파일 처리 능력 향상
+                const blobUrl = URL.createObjectURL(item.file);
 
                 if (isPdf) {
-                    // embed 보다 iframe이 data URL 처리에서 더 안정적입니다.
-                    contentArea.innerHTML = `<iframe src="${item.base64}" class="w-full h-full rounded-2xl border-none"></iframe>`;
+                    contentArea.innerHTML = `<iframe src="${blobUrl}" class="w-full h-full rounded-2xl border-none bg-white"></iframe>`;
                 } else {
-                    contentArea.innerHTML = `<img src="${item.base64}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg">`;
+                    contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg border-4 border-white">`;
                 }
 
                 document.getElementById('previewModal').classList.remove('hidden');
+                
+                // 모달이 닫힐 때 메모리 해제가 필요할 수 있으나, 여기서는 팝업이므로 간단히 처리
             }
 
             async function finalBulkSubmit() {
