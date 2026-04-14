@@ -108,6 +108,31 @@
             animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .animate-slide-in-right {
+            animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* 측면 패널 전용 스타일 */
+        #sidePreviewPanel {
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease-in-out;
+            pointer-events: auto;
+        }
+        
+        #sidePreviewPanel.hidden {
+            transform: translateX(100%);
+            display: none !important;
+        }
+
         .loading-shimmer {
             background: linear-gradient(90deg, transparent 25%, rgba(99, 102, 241, 0.05) 50%, transparent 75%);
             background-size: 200% 100%;
@@ -343,29 +368,31 @@
         </div>
     </div>
 
-    <div id="previewModal"
-        class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-[120] backdrop-blur-sm p-4">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[85vh] overflow-hidden animate-slide-up flex flex-col">
-            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
-                <h3 class="font-bold flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    이수증 원본 확인
-                </h3>
-                <button onclick="closeModal('previewModal')" class="p-2 hover:bg-white/20 rounded-full transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+    <!-- 측면 미리보기 패널 (수기 입력 시 보면서 입력하기 최적화) -->
+    <div id="sidePreviewPanel" 
+        class="fixed top-0 right-0 h-screen w-full md:w-[45%] bg-white z-[80] hidden flex flex-col border-l border-gray-100 animate-slide-in-right">
+        <div class="bg-indigo-600 p-4 text-white flex justify-between items-center shadow-md">
+            <h3 class="font-bold flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                이수증 보면서 입력
+            </h3>
+            <div class="flex items-center gap-2">
+                <button id="externalOpenBtn" class="p-2 hover:bg-white/20 rounded-full transition title="새 탭에서 보기">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </button>
+                <button onclick="closeSidePreview()" class="p-2 hover:bg-white/20 rounded-full transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
-            <div id="preview-content" class="flex-1 bg-gray-100 flex items-center justify-center preview-modal-content overflow-auto p-2">
-                <!-- 여기에 이미지나 PDF가 동적으로 들어갑니다 -->
-            </div>
-            <div class="p-4 border-t bg-gray-50 text-center">
-                <p class="text-xs text-gray-400 font-medium">내용을 확인하신 후 닫기 버튼을 눌러주세요.</p>
-            </div>
+        </div>
+        <div id="side-preview-content" class="flex-1 bg-gray-50 flex items-center justify-center overflow-auto p-4">
+            <!-- 내용 동적 주입 -->
+        </div>
+        <div class="p-4 border-t bg-white text-center">
+            <p class="text-[11px] text-gray-400 font-medium">왼쪽 입력창에서 내용을 자유롭게 수정하실 수 있습니다.</p>
         </div>
     </div>
 
@@ -776,24 +803,54 @@
                 const item = uploadQueue.find(i => i.id === id);
                 if (!item) return;
 
-                // Base64를 Blob으로 변환하여 새 창에서 열기 (가장 확실한 방법)
+                const panel = document.getElementById('sidePreviewPanel');
+                const contentArea = document.getElementById('side-preview-content');
+                const extBtn = document.getElementById('externalOpenBtn');
+                if (!panel || !contentArea) return;
+
+                const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
+                contentArea.innerHTML = '<div class="text-gray-400 animate-pulse font-bold text-lg">원본을 불러오는 중...</div>';
+                
+                panel.classList.remove('hidden');
+                panel.style.display = 'flex';
+
+                // Base64를 Blob으로 변환하여 안전하게 노출 (팝업 차단 우회 및 iframe 노출용)
                 try {
-                    const base64Data = item.base64.split(',')[1];
-                    const contentType = item.base64.split(',')[0].split(':')[1].split(';')[0];
-                    const byteCharacters = atob(base64Data);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    const base64Parts = item.base64.split(',');
+                    const byteCharacters = atob(base64Parts[1]);
+                    const byteArrays = [];
+                    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                        const slice = byteCharacters.slice(offset, offset + 512);
+                        const byteNumbers = new Array(slice.length);
+                        for (let i = 0; i < slice.length; i++) {
+                            byteNumbers[i] = slice.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        byteArrays.push(byteArray);
                     }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], {type: contentType});
+                    const blob = new Blob(byteArrays, {type: isPdf ? 'application/pdf' : 'image/jpeg'});
                     const blobUrl = URL.createObjectURL(blob);
                     
-                    // 새 창 열기 (사용자가 옆에 띄워놓고 보기에 최적화)
-                    window.open(blobUrl, '_blank', 'width=800,height=900');
+                    if (isPdf) {
+                        contentArea.innerHTML = `<iframe src="${blobUrl}" class="w-full h-full border-none bg-white rounded-xl shadow-inner text-center"></iframe>`;
+                    } else {
+                        contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl border-4 border-white">`;
+                    }
+
+                    if (extBtn) {
+                        extBtn.onclick = () => window.open(blobUrl, '_blank');
+                    }
                 } catch (e) {
                     console.error("미리보기 오류:", e);
-                    alert("미리보기를 여는 중 오류가 발생했습니다. 브라우저의 팝업 차단 설정을 확인해 주세요.");
+                    contentArea.innerHTML = `<div class="p-6 text-center text-red-500 font-bold">오류: ${e.message}</div>`;
+                }
+            }
+
+            function closeSidePreview() {
+                const panel = document.getElementById('sidePreviewPanel');
+                if (panel) {
+                    panel.classList.add('hidden');
+                    panel.style.display = 'none';
                 }
             }
 
