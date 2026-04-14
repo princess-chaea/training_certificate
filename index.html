@@ -8,7 +8,13 @@
     <title>하주초 연수 이수증 수합</title>
     <!-- Tailwind CSS (Fixed version for production stability) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js 라이브러리 추가 (샌드박스 보안 우회용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
+        // PDF.js 워커 설정 (필수)
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
         tailwind.config = {
             theme: {
                 extend: {
@@ -814,7 +820,7 @@
                 if (!panel || !contentArea) return;
 
                 const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
-                contentArea.innerHTML = '<div class="text-gray-400 animate-pulse font-bold text-lg">원본 로드 중...</div>';
+                contentArea.innerHTML = '<div class="text-gray-400 animate-pulse font-bold text-lg">파일 렌더링 중...</div>';
                 
                 panel.classList.remove('hidden');
                 panel.style.display = 'flex';
@@ -836,19 +842,7 @@
                     const blobUrl = URL.createObjectURL(blob);
                     
                     if (isPdf) {
-                        // PDF 차단 대응을 위해 embed 태그와 iframe 혼합 또는 안내 강화
-                        contentArea.innerHTML = `
-                            <div class="flex flex-col w-full h-full">
-                                <object data="${blobUrl}" type="application/pdf" class="w-full h-full rounded-lg shadow-inner">
-                                    <div class="flex flex-col items-center justify-center h-full p-4 bg-white text-center gap-4">
-                                        <p class="text-gray-500 font-bold">브라우저 보안으로 인해 PDF가 차단되었습니다.</p>
-                                        <button onclick="window.open('${blobUrl}', '_blank')" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">
-                                            별도 창으로 PDF 열기
-                                        </button>
-                                        <p class="text-xs text-gray-400">PDF를 옆에 두고 보시려면 창을 나란히 배치해 주세요.</p>
-                                    </div>
-                                </object>
-                            </div>`;
+                        renderPDFInPanel(byteArray, contentArea);
                     } else {
                         contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl border-4 border-white">`;
                     }
@@ -859,6 +853,42 @@
                 } catch (e) {
                     console.error("미리보기 오류:", e);
                     contentArea.innerHTML = `<div class="p-6 text-center text-red-500 font-bold">오류: ${e.message}</div>`;
+                }
+            }
+
+            // PDF.js를 이용한 샌드박스 우회 렌더링 (Canvas 방식)
+            async function renderPDFInPanel(data, container) {
+                try {
+                    const loadingTask = pdfjsLib.getDocument({data: data});
+                    const pdf = await loadingTask.promise;
+                    
+                    container.innerHTML = '<div class="flex flex-col gap-4 w-full h-full items-center"></div>';
+                    const wrapper = container.firstChild;
+
+                    // 이수증은 보통 1페이지지만, 모든 페이지를 순회하며 캔버스로 그림
+                    for(let pageNum = 1; pageNum <= Math.min(pdf.numPages, 3); pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        
+                        const canvas = document.createElement('canvas');
+                        canvas.className = "w-full max-w-full rounded-xl shadow-xl border border-gray-100 mb-4";
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        wrapper.appendChild(canvas);
+                    }
+                    
+                    if (pdf.numPages > 3) {
+                        const msg = document.createElement('div');
+                        msg.className = "text-center text-gray-400 text-xs py-2";
+                        msg.innerText = "(첫 3페이지만 표시됩니다. 전체는 새 탭으로 열기 버튼을 이용하세요)";
+                        wrapper.appendChild(msg);
+                    }
+                } catch (err) {
+                    console.error("PDF 렌더링 실패:", err);
+                    container.innerHTML = `<div class="text-center p-6 text-red-500 font-bold">PDF 로드 실패: ${err.message}</div>`;
                 }
             }
 
