@@ -659,9 +659,9 @@
                         statusBadge = '<span class="text-red-400 font-bold">❓ 명단에 없음</span>';
                         borderClass = 'border-red-100 bg-red-50/30';
                     } else if (item.status === 'invalid_doc') {
-                        statusBadge = '<span class="text-red-600 font-bold">🚫 이수증 아님</span>';
-                        borderClass = 'border-red-200 bg-red-100/50';
-                        icon = '❌';
+                        statusBadge = '<span class="text-orange-600 font-bold">🔍 확인 필요</span>';
+                        borderClass = 'border-orange-200 bg-orange-50/30';
+                        icon = '❓';
                     } else if (item.status === 'error') {
                         statusBadge = `<span class="text-red-600 font-bold">❌ 오류: ${item.error}</span>`;
                         borderClass = 'border-red-200 bg-red-100/50';
