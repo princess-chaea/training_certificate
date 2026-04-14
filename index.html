@@ -637,8 +637,8 @@
                     renderReviewQueue();
 
                     try {
-                        // 무료 티어 RPM 제한(분당 20회) 방지: 대기 시간을 4초로 상향
-                        if (i > 0) await delay(4000);
+                        // 무료 티어 RPM 제한(분당 20회) 방지: 대기 시간을 5초로 추가 상향 (분당 최대 12회 호출)
+                        if (i > 0) await delay(5000);
 
                         const base64 = await readFileAsDataURL(item.file);
                         item.base64 = base64;
