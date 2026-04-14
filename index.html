@@ -331,7 +331,7 @@
         </div>
         <div id="alertModal"
             class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-[110] backdrop-blur-sm p-4">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl max-sm w-full text-center space-y-6 animate-slide-up">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6 animate-slide-up">
                 <div id="modal-icon"
                     class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl">
                     ✅
@@ -766,7 +766,8 @@
                 const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
 
                 if (isPdf) {
-                    contentArea.innerHTML = `<embed src="${item.base64}" type="application/pdf" class="w-full h-full rounded-2xl">`;
+                    // embed 보다 iframe이 data URL 처리에서 더 안정적입니다.
+                    contentArea.innerHTML = `<iframe src="${item.base64}" class="w-full h-full rounded-2xl border-none"></iframe>`;
                 } else {
                     contentArea.innerHTML = `<img src="${item.base64}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg">`;
                 }
@@ -776,7 +777,13 @@
 
             async function finalBulkSubmit() {
                 const readyItems = uploadQueue.filter(i => i.status === 'ready');
-                if (!readyItems.length) return showAlert("제출 가능한(준비 완료) 항목이 없습니다.", true);
+                const totalInQueue = uploadQueue.filter(i => i.status !== 'submitted').length;
+                const skipCount = totalInQueue - readyItems.length;
+
+                if (!readyItems.length) {
+                    const msg = skipCount > 0 ? "명단에 일치하는 이름이 없어 제출할 수 없습니다.\n수동으로 성명을 수정해 주세요." : "제출 가능한 항목이 없습니다.";
+                    return showAlert(msg, true);
+                }
 
                 const btn = document.getElementById('final-submit-btn');
                 const originalText = btn.innerText;
@@ -813,10 +820,14 @@
 
                 btn.disabled = false;
                 btn.innerText = originalText;
-                showAlert(`${successCount}개의 이수증이 성공적으로 등록되었습니다.`);
+                
+                let alertMsg = `${successCount}개의 이수증이 성공적으로 등록되었습니다.`;
+                if (skipCount > 0) {
+                    alertMsg += `\n\n⚠️ 제외된 항목: ${skipCount}건\n(성명 불일치 등으로 제외되었으니 확인 후 수정해 주세요.)`;
+                }
+                showAlert(alertMsg);
 
-                if (successCount === readyItems.length) {
-                    // 모두 성공 시 홈으로
+                if (successCount === readyItems.length && skipCount === 0) {
                     setTimeout(() => showView('home'), 1500);
                 }
             }
