@@ -326,7 +326,7 @@
                                 id="admin-deadline" class="w-full p-3 rounded-xl input-field"></div>
                         <div class="col-span-full">
                             <label class="block text-sm font-bold text-gray-600 mb-2">안내사항</label>
-                            <textarea id="admin-notice" rows="3" placeholder="예: 이수증 파일명을 '성명_연수명'으로 저장하여 제출해 주세요."
+                            <textarea id="admin-notice" rows="3" placeholder="연수과정명, 제출일자, 대상 등을 작성해주세요."
                                 class="w-full p-3 rounded-xl input-field"></textarea>
                         </div>
                     </div>
@@ -637,11 +637,24 @@
                     renderReviewQueue();
 
                     try {
-                        // 무료 티어 RPM 제한(분당 20회) 방지: 대기 시간을 5초로 추가 상향 (분당 최대 12회 호출)
-                        if (i > 0) await delay(5000);
+                        // 429 에러 방지 유휴 시간
+                        if (i > 0) await delay(4000);
 
-                        const base64 = await readFileAsDataURL(item.file);
+                        let base64;
+                        if (item.file.type.startsWith('image/')) {
+                            item.status = 'analyzing';
+                            item.error = "이미지 압축 중...";
+                            renderReviewQueue();
+                            base64 = await compressImage(item.file);
+                        } else {
+                            base64 = await readFileAsDataURL(item.file);
+                        }
+                        
                         item.base64 = base64;
+                        item.status = 'analyzing';
+                        item.error = "데이터 분석 중...";
+                        renderReviewQueue();
+                        
                         const res = await callGas('analyzeCertificate', base64, item.file.name);
                         item.aiData = res;
 
@@ -679,6 +692,40 @@
                     const reader = new FileReader();
                     reader.onload = e => resolve(e.target.result);
                     reader.onerror = e => reject("파일 읽기 실패");
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            /**
+             * 🖼️ 클라이언트측 이미지 압축 (Resizing)
+             * AI 인식이 가능한 선에서 용량을 최소화하여 토큰 소모와 속도를 최적화합니다.
+             */
+            async function compressImage(file, maxWidth = 1500) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            // 0.8 품질의 JPEG로 압축 (용량 크게 감소)
+                            resolve(canvas.toDataURL('image/jpeg', 0.8));
+                        };
+                        img.onerror = () => reject("이미지 로드 실패");
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = () => reject("파일 읽기 실패");
                     reader.readAsDataURL(file);
                 });
             }
