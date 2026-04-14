@@ -329,45 +329,47 @@
                 <button onclick="closeModal('duplicateModal')"
                     class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition">취소</button>
             </div>
-        </div>
-        <div id="alertModal"
-            class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-[110] backdrop-blur-sm p-4">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6 animate-slide-up">
-                <div id="modal-icon"
-                    class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl">
-                    ✅
-                </div>
-                <div id="modal-message" class="text-xl font-bold text-gray-800 break-words font-['Noto_Sans_KR']"></div>
-                <button onclick="closeModal('alertModal')"
-                    class="w-full py-4 btn-primary text-white rounded-2xl font-bold shadow-lg">확인</button>
-            </div>
-        </div>
+        </div> <!-- duplicateModal 끝 -->
+    </div> <!-- Modals 컨테이너 끝 -->
 
-        <div id="previewModal"
-            class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-[120] backdrop-blur-sm p-4">
-            <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[85vh] overflow-hidden animate-slide-up flex flex-col">
-                <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
-                    <h3 class="font-bold flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        이수증 원본 확인
-                    </h3>
-                    <button onclick="closeModal('previewModal')" class="p-2 hover:bg-white/20 rounded-full transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div id="preview-content" class="flex-1 bg-gray-100 flex items-center justify-center preview-modal-content overflow-auto p-2">
-                    <!-- 여기에 이미지나 PDF가 동적으로 들어갑니다 -->
-                </div>
-                <div class="p-4 border-t bg-gray-50 text-center">
-                    <p class="text-xs text-gray-400 font-medium">내용을 확인하신 후 닫기 버튼을 눌러주세요.</p>
-                </div>
+    <div id="alertModal"
+        class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-[110] backdrop-blur-sm p-4">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6 animate-slide-up">
+            <div id="modal-icon"
+                class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                ✅
+            </div>
+            <div id="modal-message" class="text-xl font-bold text-gray-800 break-words font-['Noto_Sans_KR']"></div>
+            <button onclick="closeModal('alertModal')"
+                class="w-full py-4 btn-primary text-white rounded-2xl font-bold shadow-lg">확인</button>
+        </div>
+    </div>
+
+    <div id="previewModal"
+        class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-[120] backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[85vh] overflow-hidden animate-slide-up flex flex-col">
+            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    이수증 원본 확인
+                </h3>
+                <button onclick="closeModal('previewModal')" class="p-2 hover:bg-white/20 rounded-full transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="preview-content" class="flex-1 bg-gray-100 flex items-center justify-center preview-modal-content overflow-auto p-2">
+                <!-- 여기에 이미지나 PDF가 동적으로 들어갑니다 -->
+            </div>
+            <div class="p-4 border-t bg-gray-50 text-center">
+                <p class="text-xs text-gray-400 font-medium">내용을 확인하신 후 닫기 버튼을 눌러주세요.</p>
             </div>
         </div>
+    </div>
 
         <script>
             /**
@@ -773,17 +775,24 @@
             }
 
             function openPreview(id) {
+                // 디버깅용 로그
+                console.log("미리보기 시도 ID:", id);
+                
                 const item = uploadQueue.find(i => i.id === id);
                 if (!item) return;
 
                 const modal = document.getElementById('previewModal');
                 const contentArea = document.getElementById('preview-content');
+                if (!modal || !contentArea) return;
+
                 const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
                 
                 contentArea.innerHTML = '<div class="text-gray-400 animate-pulse">원본을 불러오는 중...</div>';
                 
+                // 모달 표시
                 modal.classList.remove('hidden');
                 modal.style.display = 'flex';
+                modal.style.zIndex = '9999'; // 강제 최상단
 
                 // Chrome 보안 정책(Blob 차단)을 고려하여 Data URL 방식을 우선 시도하고 실패 시 다운로드 유도
                 if (isPdf) {
