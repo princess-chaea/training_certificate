@@ -600,6 +600,13 @@
                         const res = await callGas('analyzeCertificate', base64, item.file.name);
                         item.aiData = res;
 
+                        // 이수증이 아닌 경우 처리
+                        if (res.isCertificate === false) {
+                            item.status = 'invalid_doc';
+                            renderReviewQueue();
+                            continue;
+                        }
+
                         // 빠른 자동 매칭
                         const matches = participantCache.filter(p => p.name === res.name);
                         item.matches = matches;
@@ -613,6 +620,7 @@
                             item.status = 'not_found';
                         }
                     } catch (err) {
+                        console.error("분석 에러:", err);
                         item.status = 'error';
                         item.error = err.message || err;
                     }
@@ -650,6 +658,10 @@
                     } else if (item.status === 'not_found') {
                         statusBadge = '<span class="text-red-400 font-bold">❓ 명단에 없음</span>';
                         borderClass = 'border-red-100 bg-red-50/30';
+                    } else if (item.status === 'invalid_doc') {
+                        statusBadge = '<span class="text-red-600 font-bold">🚫 이수증 아님</span>';
+                        borderClass = 'border-red-200 bg-red-100/50';
+                        icon = '❌';
                     } else if (item.status === 'error') {
                         statusBadge = `<span class="text-red-600 font-bold">❌ 오류: ${item.error}</span>`;
                         borderClass = 'border-red-200 bg-red-100/50';
@@ -759,26 +771,31 @@
             }
 
             function openPreview(id) {
+                console.log("미리보기 실행 ID:", id);
                 const item = uploadQueue.find(i => i.id === id);
-                if (!item) return;
+                if (!item) return console.error("항목을 찾을 수 없음");
 
+                const modal = document.getElementById('previewModal');
                 const contentArea = document.getElementById('preview-content');
                 const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
                 
-                contentArea.innerHTML = '<div class="text-gray-400">불러오는 중...</div>';
+                contentArea.innerHTML = '<div class="text-gray-400 animate-pulse">원본을 불러오는 중...</div>';
                 
-                // Blob URL을 사용하여 호환성 및 대용량 파일 처리 능력 향상
-                const blobUrl = URL.createObjectURL(item.file);
+                // 모달 강제 표시 (Tailwind 클래스 외에 직접 style 적용)
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
 
-                if (isPdf) {
-                    contentArea.innerHTML = `<iframe src="${blobUrl}" class="w-full h-full rounded-2xl border-none bg-white"></iframe>`;
-                } else {
-                    contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg border-4 border-white">`;
+                try {
+                    const blobUrl = URL.createObjectURL(item.file);
+                    if (isPdf) {
+                        contentArea.innerHTML = `<iframe src="${blobUrl}" class="w-full h-full rounded-2xl border-none bg-white"></iframe>`;
+                    } else {
+                        contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg border-4 border-white">`;
+                    }
+                } catch (e) {
+                    console.error("미리보기 로드 실패:", e);
+                    contentArea.innerHTML = `<div class="text-center p-10"><p class="text-red-500 font-bold mb-4">직접 보여주기에 실패했습니다.</p><button onclick="window.open('${item.base64}', '_blank')" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">파일 새 창에서 열기</button></div>`;
                 }
-
-                document.getElementById('previewModal').classList.remove('hidden');
-                
-                // 모달이 닫힐 때 메모리 해제가 필요할 수 있으나, 여기서는 팝업이므로 간단히 처리
             }
 
             async function finalBulkSubmit() {
@@ -829,12 +846,18 @@
                 
                 let alertMsg = `${successCount}개의 이수증이 성공적으로 등록되었습니다.`;
                 if (skipCount > 0) {
-                    alertMsg += `\n\n⚠️ 제외된 항목: ${skipCount}건\n(성명 불일치 등으로 제외되었으니 확인 후 수정해 주세요.)`;
+                    alertMsg += `\n\n⚠️ 제외된 항목: ${skipCount}건\n(성명 불일치, 이수증 아님 등으로 제외되었으니 확인 후 수정해 주세요.)`;
                 }
+                
+                // 안내 팝업을 먼저 띄우고, 사용자가 확인을 누를 수 있게 함 (자동 화면 전환 지연)
                 showAlert(alertMsg);
 
                 if (successCount === readyItems.length && skipCount === 0) {
-                    setTimeout(() => showView('home'), 1500);
+                    // 모든 항목이 성공하고 제외된 게 없을 때만 홈으로 이동 (약간의 여유)
+                    setTimeout(() => {
+                        if (!document.getElementById('alertModal').classList.contains('hidden')) return;
+                        showView('home');
+                    }, 3000);
                 }
             }
 
