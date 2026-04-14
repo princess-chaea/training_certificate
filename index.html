@@ -600,8 +600,10 @@
                         const res = await callGas('analyzeCertificate', base64, item.file.name);
                         item.aiData = res;
 
-                        // 이수증이 아닌 경우 처리
-                        if (res.isCertificate === false) {
+                        // [추가] AI 결과 검증: 이수증이 아니거나, 이름/이수번호 등이 "null" 혹은 너무 짧으면 확인 필요로 분류
+                        const isGarbage = (val) => !val || val.toLowerCase() === 'null' || val.trim().length < 2;
+                        
+                        if (res.isCertificate === false || isGarbage(res.name) || isGarbage(res.certNo)) {
                             item.status = 'invalid_doc';
                             renderReviewQueue();
                             continue;
@@ -771,9 +773,8 @@
             }
 
             function openPreview(id) {
-                console.log("미리보기 실행 ID:", id);
                 const item = uploadQueue.find(i => i.id === id);
-                if (!item) return console.error("항목을 찾을 수 없음");
+                if (!item) return;
 
                 const modal = document.getElementById('previewModal');
                 const contentArea = document.getElementById('preview-content');
@@ -781,20 +782,38 @@
                 
                 contentArea.innerHTML = '<div class="text-gray-400 animate-pulse">원본을 불러오는 중...</div>';
                 
-                // 모달 강제 표시 (Tailwind 클래스 외에 직접 style 적용)
                 modal.classList.remove('hidden');
                 modal.style.display = 'flex';
 
-                try {
-                    const blobUrl = URL.createObjectURL(item.file);
-                    if (isPdf) {
-                        contentArea.innerHTML = `<iframe src="${blobUrl}" class="w-full h-full rounded-2xl border-none bg-white"></iframe>`;
-                    } else {
-                        contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-2xl shadow-lg border-4 border-white">`;
-                    }
-                } catch (e) {
-                    console.error("미리보기 로드 실패:", e);
-                    contentArea.innerHTML = `<div class="text-center p-10"><p class="text-red-500 font-bold mb-4">직접 보여주기에 실패했습니다.</p><button onclick="window.open('${item.base64}', '_blank')" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">파일 새 창에서 열기</button></div>`;
+                // Chrome 보안 정책(Blob 차단)을 고려하여 Data URL 방식을 우선 시도하고 실패 시 다운로드 유도
+                if (isPdf) {
+                    // PDF는 iframe이 차단될 확률이 매우 높으므로 바로 새 창 열기 버튼 제공
+                    contentArea.innerHTML = `
+                        <div class="flex flex-col items-center justify-center gap-6 p-10 bg-white rounded-3xl shadow-inner border-2 border-dashed border-gray-100 h-full w-full">
+                            <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
+                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div class="text-center">
+                                <h4 class="font-bold text-gray-800 text-lg mb-1">PDF 파일 미리보기</h4>
+                                <p class="text-gray-400 text-sm">보안 정책상 팝업 내 출력이 제한될 수 있습니다.</p>
+                            </div>
+                            <button onclick="window.open('${item.base64}', '_blank')" class="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 transition-all flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                새 탭에서 원본 확인하기
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // 이미지는 Data URL로 직접 출력 (가장 호환성 좋음)
+                    contentArea.innerHTML = `
+                        <div class="flex flex-col items-center gap-4 w-full h-full overflow-auto">
+                            <img src="${item.base64}" class="max-w-full max-h-full object-contain rounded-2xl shadow-xl">
+                            <button onclick="window.open('${item.base64}', '_blank')" class="text-indigo-600 font-bold hover:underline text-sm flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                확대해서 보기
+                            </button>
+                        </div>
+                    `;
                 }
             }
 
