@@ -624,7 +624,11 @@
                 processFiles(fileInput.files);
             }
 
+            let isProcessingQueue = false;
             async function processQueueSequentially() {
+                if (isProcessingQueue) return;
+                isProcessingQueue = true;
+
                 for (let i = 0; i < uploadQueue.length; i++) {
                     const item = uploadQueue[i];
                     if (item.status !== 'pending') continue;
@@ -633,8 +637,8 @@
                     renderReviewQueue();
 
                     try {
-                        // 무료 티어 RPM 제한 방지 (첫번째 항목 제외하고 2초 대기)
-                        if (i > 0) await delay(2000);
+                        // 무료 티어 RPM 제한(분당 20회) 방지: 대기 시간을 4초로 상향
+                        if (i > 0) await delay(4000);
 
                         const base64 = await readFileAsDataURL(item.file);
                         item.base64 = base64;
@@ -667,6 +671,7 @@
                     }
                     renderReviewQueue();
                 }
+                isProcessingQueue = false;
             }
 
             function readFileAsDataURL(file) {
@@ -749,7 +754,7 @@
                                 <div class="flex-grow min-w-0">
                                     <p class="text-[10px] text-gray-400 truncate">${item.file.name}</p>
                                     <div class="flex items-center gap-3">
-                                        <p class="font-bold text-gray-800">${item.aiData ? item.aiData.name : '대기 중...'}</p>
+                                        <p class="font-bold text-gray-800">${item.aiData ? (item.aiData.name || '정보 없음') : '대기 중...'}</p>
                                         ${item.base64 ? previewBtn : ''}
                                     </div>
                                 </div>
