@@ -325,6 +325,40 @@
                         <div><label class="block text-sm font-bold text-gray-600 mb-2">마감 일자</label><input type="date"
                                 id="admin-deadline" class="w-full p-3 rounded-xl input-field"></div>
                         <div class="col-span-full">
+                            <label class="block text-sm font-bold text-gray-600 mb-2">대상 선택</label>
+                            <div class="flex flex-wrap gap-4 p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" name="target-option" value="전 교직원" checked onchange="handleTargetChange(this)"
+                                        class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all">
+                                    <span class="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition-colors">전 교직원</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" name="target-option" value="관리자" disabled onchange="handleTargetChange(this)"
+                                        class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all disabled:opacity-30">
+                                    <span class="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition-colors opacity-30" id="label-관리자">관리자</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" name="target-option" value="교사" disabled onchange="handleTargetChange(this)"
+                                        class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all disabled:opacity-30">
+                                    <span class="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition-colors opacity-30" id="label-교사">교사</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" name="target-option" value="직원" disabled onchange="handleTargetChange(this)"
+                                        class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all disabled:opacity-30">
+                                    <span class="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition-colors opacity-30" id="label-직원">직원</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" name="target-option" value="기타" id="target-other-check" disabled onchange="handleTargetChange(this)"
+                                        class="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all disabled:opacity-30">
+                                    <span class="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition-colors opacity-30" id="label-기타">기타</span>
+                                </label>
+                                <div id="target-other-input-container" class="hidden animate-slide-up pl-2 border-l-2 border-indigo-200">
+                                    <input type="text" id="target-other-text" placeholder="대상 직접 입력"
+                                        class="p-1.5 border-b-2 border-indigo-200 outline-none focus:border-indigo-500 bg-transparent text-sm font-bold text-indigo-700 placeholder:text-gray-300 placeholder:font-normal">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-span-full">
                             <label class="block text-sm font-bold text-gray-600 mb-2">안내사항</label>
                             <textarea id="admin-notice" rows="3" placeholder="연수과정명, 제출일자, 대상 등을 작성해주세요."
                                 class="w-full p-3 rounded-xl input-field"></textarea>
@@ -529,7 +563,13 @@
                     </div>
                     <div>
                         <h3 class="text-xl font-bold text-gray-800 mb-1 truncate">${item.title}</h3>
-                        <p class="text-sm text-gray-500 font-medium">담당자: ${item.manager || "미해당"}</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-xs text-gray-400 font-medium">담당자: ${item.manager || "미해당"}</p>
+                            <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center gap-1">
+                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                ${item.target || "전 교직원"}
+                            </span>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -544,7 +584,10 @@
                 <div class="bg-gray-50 p-5 rounded-2xl flex items-center justify-between border border-gray-100 hover:border-indigo-100 transition-colors">
                     <div>
                         <p class="font-bold text-gray-800">${item.title}</p>
-                        <p class="text-[10px] text-gray-400 mt-1">담당자: ${item.manager || "미정"} | 마감: ${item.deadlineStr}</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <p class="text-[10px] text-gray-400">담당자: ${item.manager || "미정"} | 마감: ${item.deadlineStr}</p>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-500 rounded border border-indigo-100">${item.target || "전 교직원"}</span>
+                        </div>
                     </div>
                     <div class="flex gap-2">
                         <a href="${item.sheetUrl}" target="_blank" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-1">
@@ -1037,7 +1080,20 @@
                 btn.innerHTML = `<span class="flex items-center justify-center gap-2"><div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> 생성 중...</span>`;
 
                 try {
-                    const msg = await callGas('addTraining', title, deadline, notice, manager);
+                    // 대상자 취합 로직
+                    const targetOptions = Array.from(document.getElementsByName('target-option'))
+                        .filter(opt => opt.checked)
+                        .map(opt => {
+                            if (opt.value === '기타') {
+                                return document.getElementById('target-other-text').value || "";
+                            }
+                            return opt.value;
+                        })
+                        .filter(val => val !== ""); // 빈 값(기타 텍스트 미입력 등) 제거
+
+                    const target = targetOptions.includes('전 교직원') ? '전 교직원' : (targetOptions.length > 0 ? targetOptions.join(', ') : '전 교직원');
+
+                    const msg = await callGas('addTraining', title, deadline, notice, manager, target);
                     showAlert(msg);
                     document.getElementById('admin-title').value = "";
                     document.getElementById('admin-manager').value = "";
@@ -1059,6 +1115,45 @@
             }
 
             function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+            /**
+             * 👤 대상 선택 로직 제어
+             */
+            function handleTargetChange(el) {
+                const allOptions = document.getElementsByName('target-option');
+                const otherCheck = document.getElementById('target-other-check');
+                const otherInput = document.getElementById('target-other-input-container');
+
+                if (el.value === '전 교직원') {
+                    if (el.checked) {
+                        // 전 교직원 선택 시 나머지 해제 및 비활성
+                        allOptions.forEach(opt => {
+                            if (opt.value !== '전 교직원') {
+                                opt.checked = false;
+                                opt.disabled = true;
+                                const label = document.getElementById('label-' + opt.value);
+                                if (label) label.classList.add('opacity-30');
+                            }
+                        });
+                        otherInput.classList.add('hidden');
+                    } else {
+                        // 전 교직원 해제 시 나머지 활성
+                        allOptions.forEach(opt => {
+                            opt.disabled = false;
+                            const label = document.getElementById('label-' + opt.value);
+                            if (label) label.classList.remove('opacity-30');
+                        });
+                    }
+                }
+                
+                // 기타 체크 여부에 따른 입력칸 표시
+                if (otherCheck.checked && !otherCheck.disabled) {
+                    otherInput.classList.remove('hidden');
+                    document.getElementById('target-other-text').focus();
+                } else {
+                    otherInput.classList.add('hidden');
+                }
+            }
         </script>
 </body>
 
