@@ -326,11 +326,9 @@
             </div>
             <div id="duplicate-list" class="p-6 space-y-3 max-h-80 overflow-y-auto"></div>
             <div class="p-6 bg-gray-50 flex gap-3">
-                <button onclick="closeModal('duplicateModal')"
-                    class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition">취소</button>
             </div>
-        </div> <!-- duplicateModal 끝 -->
-    </div> <!-- Modals 컨테이너 끝 -->
+        </div>
+    </div> <!-- duplicateModal 끝 -->
 
     <div id="alertModal"
         class="fixed inset-0 bg-black/60 flex items-center justify-center hidden z-[110] backdrop-blur-sm p-4">
@@ -775,54 +773,27 @@
             }
 
             function openPreview(id) {
-                // 디버깅용 로그
-                console.log("미리보기 시도 ID:", id);
-                
                 const item = uploadQueue.find(i => i.id === id);
                 if (!item) return;
 
-                const modal = document.getElementById('previewModal');
-                const contentArea = document.getElementById('preview-content');
-                if (!modal || !contentArea) return;
-
-                const isPdf = item.file.name.toLowerCase().endsWith('.pdf');
-                
-                contentArea.innerHTML = '<div class="text-gray-400 animate-pulse">원본을 불러오는 중...</div>';
-                
-                // 모달 표시
-                modal.classList.remove('hidden');
-                modal.style.display = 'flex';
-                modal.style.zIndex = '9999'; // 강제 최상단
-
-                // Chrome 보안 정책(Blob 차단)을 고려하여 Data URL 방식을 우선 시도하고 실패 시 다운로드 유도
-                if (isPdf) {
-                    // PDF는 iframe이 차단될 확률이 매우 높으므로 바로 새 창 열기 버튼 제공
-                    contentArea.innerHTML = `
-                        <div class="flex flex-col items-center justify-center gap-6 p-10 bg-white rounded-3xl shadow-inner border-2 border-dashed border-gray-100 h-full w-full">
-                            <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
-                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                            </div>
-                            <div class="text-center">
-                                <h4 class="font-bold text-gray-800 text-lg mb-1">PDF 파일 미리보기</h4>
-                                <p class="text-gray-400 text-sm">보안 정책상 팝업 내 출력이 제한될 수 있습니다.</p>
-                            </div>
-                            <button onclick="window.open('${item.base64}', '_blank')" class="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 transition-all flex items-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                새 탭에서 원본 확인하기
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    // 이미지는 Data URL로 직접 출력 (가장 호환성 좋음)
-                    contentArea.innerHTML = `
-                        <div class="flex flex-col items-center gap-4 w-full h-full overflow-auto">
-                            <img src="${item.base64}" class="max-w-full max-h-full object-contain rounded-2xl shadow-xl">
-                            <button onclick="window.open('${item.base64}', '_blank')" class="text-indigo-600 font-bold hover:underline text-sm flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                확대해서 보기
-                            </button>
-                        </div>
-                    `;
+                // Base64를 Blob으로 변환하여 새 창에서 열기 (가장 확실한 방법)
+                try {
+                    const base64Data = item.base64.split(',')[1];
+                    const contentType = item.base64.split(',')[0].split(':')[1].split(';')[0];
+                    const byteCharacters = atob(base64Data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], {type: contentType});
+                    const blobUrl = URL.createObjectURL(blob);
+                    
+                    // 새 창 열기 (사용자가 옆에 띄워놓고 보기에 최적화)
+                    window.open(blobUrl, '_blank', 'width=800,height=900');
+                } catch (e) {
+                    console.error("미리보기 오류:", e);
+                    alert("미리보기를 여는 중 오류가 발생했습니다. 브라우저의 팝업 차단 설정을 확인해 주세요.");
                 }
             }
 
