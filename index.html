@@ -218,6 +218,25 @@
                         </svg>
                     </button>
                 </div>
+
+                <!-- User Search Section -->
+                <div class="space-y-4">
+                    <div class="bg-white/50 p-4 rounded-3xl border border-indigo-100 flex flex-col md:flex-row gap-3 items-center">
+                        <div class="relative flex-grow w-full">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            </span>
+                            <input type="text" id="user-search-input" placeholder="성명을 입력하여 이수 현황 확인" 
+                                class="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none text-sm font-bold transition-all"
+                                onkeyup="if(event.key==='Enter') searchUser()">
+                        </div>
+                        <button onclick="searchUser()" class="w-full md:w-auto px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                            확인하기
+                        </button>
+                    </div>
+                    <div id="user-identity-container" class="hidden animate-slide-up"></div>
+                </div>
+
                 <div id="training-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="col-span-full py-20 text-center space-y-4">
                         <div class="loading-shimmer h-12 w-full rounded-2xl mx-auto max-w-md"></div>
@@ -496,6 +515,9 @@
             let currentEditId = null;
             let editModeTitle = null; // 수정 모드 시 원본 제목 저장
 
+            let currentUserIdentity = null; // { name, classTitle }
+            let userSubmittedTrainings = []; // ['연수1', '연수2']
+
             const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
             document.addEventListener('DOMContentLoaded', () => {
@@ -563,23 +585,36 @@
             function renderHome() {
                 const container = document.getElementById('training-list');
                 if (!cachedList.length) { container.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400">등록된 연수가 없습니다.</div>'; return; }
-                container.innerHTML = cachedList.map(item => `
-                <div onclick="openSubmit('${item.title}')" class="group bg-white p-6 rounded-3xl cursor-pointer transition-all hover:shadow-xl border border-transparent hover:border-indigo-100 flex flex-col justify-between">
-                    <div class="flex justify-between items-start mb-4">
-                        <span class="text-xs font-bold px-3 py-1 bg-red-50 text-red-500 rounded-full">D-Day: ${item.deadlineStr}</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800 mb-1 truncate">${item.title}</h3>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <p class="text-xs text-gray-400 font-medium">담당자: ${item.manager || "미해당"}</p>
-                            <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center gap-1">
-                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                                ${item.target || "전 교직원"}
-                            </span>
+                container.innerHTML = cachedList.map(item => {
+                    const isSubmitted = userSubmittedTrainings.includes(item.title);
+                    const opacityClass = isSubmitted ? 'opacity-50 grayscale-[0.3]' : '';
+                    const badge = isSubmitted ? `
+                        <span class="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-600 rounded-lg border border-green-200 flex items-center gap-1 animate-slide-up">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                            제출 완료
+                        </span>
+                    ` : '';
+                    const clickHandler = isSubmitted ? `onclick="showAlert('[${item.title}]\\n이미 제출이 완료된 연수입니다.', false)"` : `onclick="openSubmit('${item.title}')"`;
+
+                    return `
+                    <div ${clickHandler} class="group bg-white p-6 rounded-3xl cursor-pointer transition-all hover:shadow-xl border border-transparent hover:border-indigo-100 flex flex-col justify-between ${opacityClass}">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs font-bold px-3 py-1 bg-red-50 text-red-500 rounded-full">D-Day: ${item.deadlineStr}</span>
+                            ${badge}
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800 mb-1 truncate">${item.title}</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <p class="text-xs text-gray-400 font-medium">담당자: ${item.manager || "미해당"}</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center gap-1">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                    ${item.target || "전 교직원"}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+                }).join('');
             }
 
             function renderAdmin() {
@@ -639,6 +674,90 @@
                 try {
                     participantCache = await callGas('getParticipantList', title);
                 } catch (e) { console.error("명단 로드 실패:", e); }
+            }
+
+            async function searchUser() {
+                const name = document.getElementById('user-search-input').value.trim();
+                if (!name) return;
+                
+                const container = document.getElementById('user-identity-container');
+                container.innerHTML = '<div class="py-4 text-center text-gray-400 text-xs animate-pulse">명단 확인 중...</div>';
+                container.classList.remove('hidden');
+                
+                try {
+                    const matches = await callGas('findParticipantsByName', name);
+                    if (matches.length === 0) {
+                        container.innerHTML = `
+                            <div class="p-4 bg-red-50 border border-red-100 rounded-2xl text-xs font-bold text-red-600 flex items-center gap-2 animate-slide-up">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                명단에서 [${name}] 님을 찾을 수 없습니다. 오타가 없는지 확인해 주세요.
+                            </div>`;
+                    } else if (matches.length === 1) {
+                        selectUser(matches[0].name, matches[0].classTitle);
+                    } else {
+                        container.innerHTML = `
+                            <div class="p-5 bg-indigo-50 border border-indigo-100 rounded-3xl space-y-4 animate-slide-up">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[10px]">!</div>
+                                    <p class="text-xs font-bold text-indigo-900">동명이인이 발견되었습니다. 본인의 [학반/직위]를 선택해 주세요.</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    ${matches.map(m => `
+                                        <button onclick="selectUser('${m.name}', '${m.classTitle}')" class="px-4 py-2 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                                            [${m.classTitle}] ${m.name}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    container.innerHTML = `<div class="p-4 bg-red-50 border border-red-100 rounded-2xl text-xs font-bold text-red-600">오류가 발생했습니다: ${e.message}</div>`;
+                }
+            }
+
+            async function selectUser(name, classTitle) {
+                currentUserIdentity = { name, classTitle };
+                const container = document.getElementById('user-identity-container');
+                container.innerHTML = `
+                    <div class="p-5 bg-white border border-green-100 rounded-3xl flex justify-between items-center shadow-sm animate-slide-up">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-xl shadow-inner">👤</div>
+                            <div>
+                                <p class="text-[10px] text-green-600 font-bold tracking-wider uppercase">IDENTIFIED USER</p>
+                                <p class="text-lg font-bold text-gray-800">[${classTitle}] ${name} 님</p>
+                            </div>
+                        </div>
+                        <button onclick="resetUserSearch()" class="p-2 hover:bg-red-50 rounded-xl transition-all group">
+                            <svg class="w-6 h-6 text-gray-300 group-hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                    <div id="check-status-loading" class="mt-3 text-center">
+                        <span class="inline-flex items-center gap-2 px-4 py-1.5 bg-gray-100 rounded-full text-[10px] font-bold text-gray-400 animate-pulse">
+                            <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+                            이수 현황을 확인하고 있습니다...
+                        </span>
+                    </div>
+                `;
+                
+                try {
+                    userSubmittedTrainings = await callGas('checkSubmissionsByIdentity', name, classTitle);
+                    const loadingEl = document.getElementById('check-status-loading');
+                    if (loadingEl) loadingEl.classList.add('hidden');
+                    renderHome();
+                } catch (e) {
+                    console.error("이수 확인 실패:", e);
+                    const loadingEl = document.getElementById('check-status-loading');
+                    if (loadingEl) loadingEl.innerHTML = `<span class="text-red-500 text-[10px] font-bold">확인 실패: ${e.message}</span>`;
+                }
+            }
+
+            function resetUserSearch() {
+                currentUserIdentity = null;
+                userSubmittedTrainings = [];
+                document.getElementById('user-search-input').value = "";
+                document.getElementById('user-identity-container').classList.add('hidden');
+                renderHome();
             }
 
             function resetUpload() {
