@@ -1187,6 +1187,13 @@
                     alertMsg += `\n\n⚠️ 제외된 항목: ${skipCount}건\n(성명 불일치, 이수증 아님 등으로 제외되었으니 확인 후 수정해 주세요.)`;
                 }
                 
+                if (successCount > 0) {
+                    if (currentUserIdentity && !userSubmittedTrainings.includes(currentTrainingTitle)) {
+                        userSubmittedTrainings.push(currentTrainingTitle);
+                    }
+                    renderHome();
+                }
+
                 // 안내 팝업을 먼저 띄우고, 사용자가 확인을 누를 수 있게 함 (자동 화면 전환 지연)
                 showAlert(alertMsg);
 
