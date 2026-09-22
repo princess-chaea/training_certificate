@@ -8,13 +8,8 @@
     <title>하주초 연수 이수증 수합</title>
     <!-- Tailwind CSS (Fixed version for production stability) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- PDF.js 라이브러리 추가 (샌드박스 보안 우회용) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- PDF.js: 미리보기 시점에 동적으로 로드 (초기 로딩 속도 최적화) -->
     <script>
-        // PDF.js 워커 설정 (필수)
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
         tailwind.config = {
             theme: {
                 extend: {
@@ -615,12 +610,39 @@
                 document.getElementById('tab-indicator-admin').classList.toggle('scale-x-100', !isHome);
             }
 
-            async function refreshLists() {
+            async function refreshLists(forceRefresh = false) {
                 const container = document.getElementById('training-list');
-                container.innerHTML = '<div class="col-span-full py-20 text-center"><div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p class="text-gray-400">목록을 갱신하는 중...</p></div>';
 
+                // localStorage 캐시 확인 (2분 TTL)
+                if (!forceRefresh) {
+                    try {
+                        const raw = localStorage.getItem('trainingListCache');
+                        if (raw) {
+                            const obj = JSON.parse(raw);
+                            if (Date.now() - obj.ts < 120000) {
+                                cachedList = obj.data;
+                                renderHome();
+                                renderAdmin();
+                                // 백그라운드에서 갱신
+                                _fetchAndCacheLists();
+                                return;
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                container.innerHTML = '<div class="col-span-full py-20 text-center"><div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p class="text-gray-400">목록을 갱신하는 중...</p></div>';
+                await _fetchAndCacheLists();
+            }
+
+            async function _fetchAndCacheLists() {
+                const container = document.getElementById('training-list');
                 try {
                     cachedList = await callGas('getTrainingList');
+                    // localStorage에 캐싱
+                    try {
+                        localStorage.setItem('trainingListCache', JSON.stringify({ ts: Date.now(), data: cachedList }));
+                    } catch(e) {}
                     renderHome();
                     renderAdmin();
                 } catch (e) {
@@ -642,9 +664,11 @@
                         </span>
                     ` : '';
                     const clickHandler = isSubmitted ? `onclick="handleSubmittedTrainingClick('${item.title}')"` : `onclick="openSubmit('${item.title}')"`;
+                    // 호버 시 명단 프리패치 (onmouseenter)
+                    const prefetchAttr = !isSubmitted ? `onmouseenter="prefetchParticipants('${item.title}')"` : '';
 
                     return `
-                    <div ${clickHandler} class="group bg-white p-6 rounded-3xl cursor-pointer transition-all hover:shadow-xl border border-transparent hover:border-indigo-100 flex flex-col justify-between ${opacityClass}">
+                    <div ${clickHandler} ${prefetchAttr} class="group bg-white p-6 rounded-3xl cursor-pointer transition-all hover:shadow-xl border border-transparent hover:border-indigo-100 flex flex-col justify-between ${opacityClass}">
                         <div class="flex justify-between items-start mb-4">
                             <span class="text-xs font-bold px-3 py-1 bg-red-50 text-red-500 rounded-full">D-Day: ${item.deadlineStr}</span>
                             ${badge}
@@ -696,11 +720,20 @@
             `).join('');
             }
 
+            // 명단 프리패치 캐시
+            const participantPrefetchCache = {};
+
+            async function prefetchParticipants(title) {
+                if (participantPrefetchCache[title] || participantCache.length > 0) return;
+                try {
+                    participantPrefetchCache[title] = await callGas('getParticipantList', title);
+                } catch(e) {}
+            }
+
             async function openSubmit(title) {
                 currentTrainingTitle = title;
                 document.getElementById('submit-title').innerText = title;
                 
-                // 안내사항 표시 로직 추가
                 const trainingData = cachedList.find(t => t.title === title);
                 const noticeContainer = document.getElementById('submit-notice-container');
                 const noticeText = document.getElementById('submit-notice-text');
@@ -717,10 +750,15 @@
                 resetUpload();
                 showView('submit');
 
-                // 빠른 중복 체크를 위한 명단 캐싱
-                try {
-                    participantCache = await callGas('getParticipantList', title);
-                } catch (e) { console.error("명단 로드 실패:", e); }
+                // 프리패치된 명단 사용 및 없으면 실시간 로드
+                if (participantPrefetchCache[title]) {
+                    participantCache = participantPrefetchCache[title];
+                } else {
+                    try {
+                        participantCache = await callGas('getParticipantList', title);
+                        participantPrefetchCache[title] = participantCache;
+                    } catch (e) { console.error("명단 로드 실패:", e); }
+                }
             }
 
             async function searchUser() {
@@ -859,8 +897,8 @@
                     renderReviewQueue();
 
                     try {
-                        // 429 에러 방지 유휴 시간
-                        if (i > 0) await delay(4000);
+                        // 429 에러 방지 유휴 시간 (4s → 2s로 단축)
+                        if (i > 0) await delay(2000);
 
                         let base64;
                         if (item.file.type.startsWith('image/')) {
@@ -1114,6 +1152,23 @@
                 }
             }
 
+            let pdfJsLoaded = false;
+            async function ensurePdfJs() {
+                if (pdfJsLoaded) return;
+                await new Promise((resolve, reject) => {
+                    const s1 = document.createElement('script');
+                    s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                    s1.onload = () => {
+                        window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc =
+                            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        pdfJsLoaded = true;
+                        resolve();
+                    };
+                    s1.onerror = reject;
+                    document.head.appendChild(s1);
+                });
+            }
+
             function openPreview(id) {
                 const item = uploadQueue.find(i => i.id === id);
                 if (!item) return;
@@ -1141,7 +1196,8 @@
                     const blobUrl = URL.createObjectURL(blob);
                     
                     if (isPdf) {
-                        renderPDFInPanel(byteArray, contentArea);
+                        const byteArray2 = new Uint8Array(byteNumbers);
+                        ensurePdfJs().then(() => renderPDFInPanel(byteArray2, contentArea));
                     } else {
                         contentArea.innerHTML = `<img src="${blobUrl}" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl border-4 border-white">`;
                     }

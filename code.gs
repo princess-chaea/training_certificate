@@ -70,19 +70,32 @@ function getApiKey() {
 }
 
 /**
- * 등록된 연수 목록 가져오기 (시트 탭 목록 중 템플릿 제외)
+ * 등록된 연수 목록 가져오기 (최적화: CacheService + 일괄 셀 읽기 + 폴더URL 셀 캐시)
  */
 function getTrainingList() {
+  // ① 60초 캐시 확인 (반복 호출 방지)
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('trainingList');
+  if (cached) {
+    try { return JSON.parse(cached); } catch(e) {}
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   const list = [];
-  
+
   sheets.forEach(sheet => {
     const name = sheet.getName();
-    // 템플릿 시트, 메인/설정 시트, 그리고 템플릿의 사본(의 사본 등)은 목록에서 제외
     if (name !== "메인" && !name.includes("설정") && !name.includes(TEMPLATE_SHEET_NAME)) {
-      // J1에는 "마감 기한" 라벨, K1(Column 11)에 마감일이 저장되어 있음
-      const deadline = sheet.getRange("K1").getValue();
+      // ② 메타데이터 셀을 한 번에 일괄 읽기 (K1:P1 범위)
+      const meta = sheet.getRange("A3:O3").getValues(); // 안내사항
+      const row1 = sheet.getRange("K1:P1").getValues()[0]; // K:마감, L:-, M:담당자, N:-, O:대상, P:폴더URL캐시
+      
+      const deadline = row1[0]; // K1
+      const manager = sheet.getRange("M1").getValue() || "미정";
+      const target = sheet.getRange("O1").getValue() || "전 교직원";
+      const notice = sheet.getRange("A3").getValue();
+
       let deadlineStr = "없음";
       try {
         if (deadline) {
@@ -91,22 +104,29 @@ function getTrainingList() {
             deadlineStr = Utilities.formatDate(d, "GMT+9", "yyyy-MM-dd");
           }
         }
-      } catch (e) {
-        console.error("Date parsing error for sheet " + name + ": " + e);
+      } catch (e) {}
+
+      // ③ 폴더 URL: P1 셀에 캐시된 값 우선 사용, 없으면 Drive 검색 후 저장
+      let folderUrl = row1[5]; // P1
+      if (!folderUrl) {
+        folderUrl = getStorageFolder(name).getUrl();
+        sheet.getRange("P1").setValue(folderUrl); // 다음 호출을 위해 저장
       }
-      
+
       list.push({
         title: name,
         deadlineStr: deadlineStr,
         sheetUrl: `https://docs.google.com/spreadsheets/d/${SS_ID}/edit#gid=${sheet.getSheetId()}`,
-        folderUrl: getStorageFolder(name).getUrl(),
-        notice: sheet.getRange("A3").getValue(),
-        manager: sheet.getRange("M1").getValue() || "미정",
-        target: sheet.getRange("O1").getValue() || "전 교직원"
+        folderUrl: folderUrl,
+        notice: notice,
+        manager: manager,
+        target: target
       });
     }
   });
-  
+
+  // ④ 결과를 60초간 캐싱
+  try { cache.put('trainingList', JSON.stringify(list), 60); } catch(e) {}
   return list;
 }
 
@@ -128,16 +148,20 @@ function addTraining(title, deadline, notice, manager, target) {
   newSheet.getRange("A1").setValue(title + " 연수 이수 결과");
   
   if (notice) {
-    // A3:I3 영역에 안내사항 기록 (병합된 셀이라도 A3에 쓰면 적용됨)
     newSheet.getRange("A3").setValue(notice);
   }
   
   newSheet.getRange("L1").setValue("담당자");
   newSheet.getRange("M1").setValue(manager || "");
-  
-  // 대상자 정보 저장 (N1: 라벨, O1: 데이터)
   newSheet.getRange("N1").setValue("대상");
   newSheet.getRange("O1").setValue(target || "전 교직원");
+
+  // 폴더 URL을 P1에 미리 저장 (getTrainingList 속도 최적화)
+  const folderUrl = getStorageFolder(title).getUrl();
+  newSheet.getRange("P1").setValue(folderUrl);
+
+  // 캐시 무효화
+  CacheService.getScriptCache().remove('trainingList');
   
   return `[${title}] 연수가 등록되었습니다.`;
 }
@@ -151,10 +175,13 @@ function updateTraining(oldTitle, newTitle, deadline, notice, manager, target) {
   
   if (!sheet) throw new Error(`[${oldTitle}] 연수 시트를 찾을 수 없습니다.`);
   
-  // 제목이 바뀐 경우 시트 이름 변경
+  // 제목이 바뀐 경우 시트 이름 변경 + 폴더 URL 재저장
   if (oldTitle !== newTitle) {
     if (ss.getSheetByName(newTitle)) throw new Error("이미 동일한 이름의 연수가 존재합니다.");
     sheet.setName(newTitle);
+    // 폴더명이 바뀌었으므로 URL 재저장
+    const folderUrl = getStorageFolder(newTitle).getUrl();
+    sheet.getRange("P1").setValue(folderUrl);
   }
   
   // 메타데이터 업데이트
@@ -163,6 +190,9 @@ function updateTraining(oldTitle, newTitle, deadline, notice, manager, target) {
   sheet.getRange("A3").setValue(notice || "");
   sheet.getRange("M1").setValue(manager || "");
   sheet.getRange("O1").setValue(target || "전 교직원");
+
+  // 캐시 무효화
+  CacheService.getScriptCache().remove('trainingList');
   
   return `[${newTitle}] 연수 정보가 수정되었습니다.`;
 }
@@ -256,11 +286,14 @@ function getParticipantList(trainingTitle) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(trainingTitle);
   if (!sheet) return [];
-  
-  const values = sheet.getRange("B4:C100").getValues();
+
+  // 실제 마지막 행까지만 읽기 (100행 고정 대신 동적 감지)
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 4) return [];
+  const values = sheet.getRange(4, 2, lastRow - 3, 2).getValues(); // B4:C{lastRow}
   const list = [];
   for (let i = 0; i < values.length; i++) {
-    if (values[i][1]) { // 이름이 있는 경우만
+    if (values[i][1]) {
       list.push({
         rowIndex: i + 4,
         classTitle: values[i][0],
