@@ -3,12 +3,30 @@
  * Model: gemini-2.5-flash
  */
 
-const SS_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const FOLDER_NAME = "연수 이수증";
 const TEMPLATE_SHEET_NAME = "연수 수합(서식)";
 
-function doGet() {
+function doGet(e) {
   try {
+    // GET API 지원 (테스트 및 브라우저 직접 조회 호환)
+    if (e && e.parameter && e.parameter.functionName) {
+      const fn = e.parameter.functionName;
+      const args = e.parameter.args ? JSON.parse(e.parameter.args) : [];
+      const functionMap = {
+        getTrainingList: getTrainingList,
+        getApiKey: getApiKey,
+        saveApiKey: saveApiKey,
+        getParticipantList: getParticipantList,
+        findParticipantsByName: findParticipantsByName,
+        checkSubmissionsByIdentity: checkSubmissionsByIdentity
+      };
+      if (typeof functionMap[fn] === 'function') {
+        const res = functionMap[fn].apply(null, args);
+        return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: res }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     const template = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TEMPLATE_SHEET_NAME);
     if (!template) {
       return HtmlService.createHtmlOutput(`
@@ -37,11 +55,22 @@ function doPost(e) {
     const functionName = params.functionName;
     const args = params.args || [];
     
-    // 허용된 함수 목록
-    const allowedFunctions = ['getTrainingList', 'getApiKey', 'saveApiKey', 'analyzeCertificate', 'addTraining', 'submitCertificate', 'getParticipantList', 'updateTraining', 'findParticipantsByName', 'checkSubmissionsByIdentity'];
+    // 허용된 함수 매핑 (Apps Script V8 환경에서 this[functionName]이 undefined가 되는 현상 방지)
+    const functionMap = {
+      getTrainingList: getTrainingList,
+      getApiKey: getApiKey,
+      saveApiKey: saveApiKey,
+      analyzeCertificate: analyzeCertificate,
+      addTraining: addTraining,
+      submitCertificate: submitCertificate,
+      getParticipantList: getParticipantList,
+      updateTraining: updateTraining,
+      findParticipantsByName: findParticipantsByName,
+      checkSubmissionsByIdentity: checkSubmissionsByIdentity
+    };
     
-    if (allowedFunctions.includes(functionName) && typeof this[functionName] === 'function') {
-      const result = this[functionName].apply(null, args);
+    if (typeof functionMap[functionName] === 'function') {
+      const result = functionMap[functionName].apply(null, args);
       return ContentService.createTextOutput(JSON.stringify({
         status: 'success',
         data: result
@@ -116,7 +145,7 @@ function getTrainingList() {
       list.push({
         title: name,
         deadlineStr: deadlineStr,
-        sheetUrl: `https://docs.google.com/spreadsheets/d/${SS_ID}/edit#gid=${sheet.getSheetId()}`,
+        sheetUrl: `${ss.getUrl()}#gid=${sheet.getSheetId()}`,
         folderUrl: folderUrl,
         notice: notice,
         manager: manager,
