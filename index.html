@@ -720,14 +720,25 @@
             `).join('');
             }
 
-            // 명단 프리패치 캐시
+            // 명단 프리패치 캐시 & 디바운스
             const participantPrefetchCache = {};
+            let prefetchTimer = null;
+            const inFlightPrefetch = new Set();
 
-            async function prefetchParticipants(title) {
-                if (participantPrefetchCache[title] || participantCache.length > 0) return;
-                try {
-                    participantPrefetchCache[title] = await callGas('getParticipantList', title);
-                } catch(e) {}
+            function prefetchParticipants(title) {
+                if (!title || participantPrefetchCache[title] || inFlightPrefetch.has(title) || (participantCache && participantCache.length > 0)) return;
+                clearTimeout(prefetchTimer);
+                prefetchTimer = setTimeout(async () => {
+                    if (participantPrefetchCache[title] || inFlightPrefetch.has(title)) return;
+                    inFlightPrefetch.add(title);
+                    try {
+                        const data = await callGas('getParticipantList', title);
+                        if (data) participantPrefetchCache[title] = data;
+                    } catch(e) {
+                    } finally {
+                        inFlightPrefetch.delete(title);
+                    }
+                }, 300);
             }
 
             async function openSubmit(title) {
