@@ -518,21 +518,17 @@
             const GAS_URL = "https://script.google.com/macros/s/AKfycbw2ZPdM4drIP7hy_Hhup28i8a5PyrdbiyZAH4V9m3Z0PFbBzfK3borTYgDaYzv2YDTC/exec"; //여기에 GAS 배포 URL을 입력하세요.
 
             async function callGas(functionName, ...args) {
-                // 1. Mock Mode (Local Preview)
-                if (!GAS_URL && typeof google === 'undefined') {
-                    const mockHandlers = {
-                        getTrainingList: () => [{ title: "2026 에듀테크 연수 (Mock)", deadlineStr: "2026-12-31", sheetUrl: "#", folderUrl: "#" }],
-                        analyzeCertificate: () => ({ name: "홍길동", courseName: "에듀테크 활용", certNo: "123", hours: "15", institution: "하주초등학교" }),
-                        addTraining: (t, d, n) => `[${t}] 등록 완료 (안내사항: ${n})`,
-                        submitCertificate: (d) => `${d.name} 님 제출 완료`
-                    };
-                    return new Promise(res => setTimeout(() => res(mockHandlers[functionName] ? mockHandlers[functionName](...args) : null), 800));
+                // 1. GAS Native Mode (GAS 배포 URL로 직접 접속 시 최고 속도/CORS 없는 네이티브 실행)
+                if (typeof google !== 'undefined' && google.script && google.script.run) {
+                    return new Promise((resolve, reject) => {
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(err => reject(new Error(err && err.message ? err.message : err)))[functionName](...args);
+                    });
                 }
 
-                // 2. Vercel Mode (External API)
+                // 2. Vercel / External Mode (GAS_URL을 통한 외부 API 통신)
                 if (GAS_URL) {
-                    // 'text/plain'을 사용하여 브라우저의 CORS preflight(OPTIONS)를 방지합니다.
-                    // GAS doPost는 컨텐츠 타입과 관계없이 e.postData.contents로 데이터를 읽을 수 있습니다.
                     const res = await fetch(GAS_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain' },
@@ -543,10 +539,16 @@
                     throw new Error(json.message || "알 수 없는 오류가 발생했습니다.");
                 }
 
-                // 3. GAS Mode (Standard)
-                return new Promise((resolve, reject) => {
-                    google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[functionName](...args);
-                });
+                // 3. Mock Mode (로컬 개발 환경)
+                const mockHandlers = {
+                    getTrainingList: () => [{ title: "2026 에듀테크 연수 (Mock)", deadlineStr: "2026-12-31", sheetUrl: "#", folderUrl: "#" }],
+                    analyzeCertificate: () => ({ name: "홍길동", courseName: "에듀테크 활용", certNo: "123", hours: "15", institution: "하주초등학교" }),
+                    addTraining: (t, d, n) => `[${t}] 등록 완료 (안내사항: ${n})`,
+                    submitCertificate: (d) => `${d.name} 님 제출 완료`,
+                    findParticipantsByName: (name) => [{ classTitle: "교무", name: name }],
+                    checkSubmissionsByIdentity: () => []
+                };
+                return new Promise(res => setTimeout(() => res(mockHandlers[functionName] ? mockHandlers[functionName](...args) : null), 500));
             }
 
             // --- 전역 변수 ---
