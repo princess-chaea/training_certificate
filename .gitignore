@@ -1,0 +1,9 @@
+# Google Workspace 파일 (링크 파일, 직접 추적 불필요)
+*.gsheet
+*.gdoc
+*.gslides
+*.gform
+
+# Windows
+desktop.ini
+Thumbs.db
